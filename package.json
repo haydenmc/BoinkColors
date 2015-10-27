@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "name": "BoinkColor",
+  "private": true,
+  "devDependencies": {
+    "grunt": "^0.4.5",
+    "grunt-ts": "^5.1.0",
+    "grunt-contrib-copy": "^0.8.2",
+    "typescript": "^1.6.2",
+    "webcomponents.js": "^0.7.2"
+  },
+  "dependencies": {
+  }
+}

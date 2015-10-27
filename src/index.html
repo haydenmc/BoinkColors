@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>BoinkColor</title>
+		<script src="webcomponents.js"></script>
+		<script src="boink.js"></script>
+		<script src="application.js"></script>
+		<style>
+			body {
+				font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+				background-color: black;
+				color: #fff;
+			}
+			
+			bc-application {
+				position: absolute;
+				top: 0;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				padding: 16px;
+				display: flex;
+				align-items: flex-start;
+				justify-content: center;
+			}
+			
+			ui-frame {
+				display: block;
+			}
+		</style>
+	</head>
+	<body>
+		<bc-application>
+			<ui-frame id="ColorPicker" data-default-page="palette">
+				<ui-page data-page-id="palette">
+					<template>
+						Palette!
+						<bc-palette data-context="{{palette}}"></bc-palette>
+					</template>
+				</ui-page>
+				<ui-page data-page-id="image">
+					<template>
+						Image!
+					</template>
+				</ui-page>
+			</ui-frame>
+			<div>
+				<bc-colorblock data-context="{{selectedColor}}"></bc-colorblock>
+			</div>
+		</bc-application>
+		
+		<!-- Template for Palette Component -->
+		<template id="bc-palette">
+			<style>
+				:host {
+					display: flex;
+				}
+			</style>
+			<ui-repeater>
+				<template>
+					<bc-colorblock></bc-colorblock>
+				</template>
+			</ui-repeater>
+		</template>
+		
+		<!-- Template for ColorBlock Component -->
+		<template id="bc-colorblock">
+			<style>
+				:host {
+					display: block;
+					width: 48px;
+					height: 48px;
+					margin: 8px;
+					border: 2px solid #fff;
+					background-color: #000000;
+				}
+			</style>
+			{{hexValue}}
+		</template>
+	</body>
+</html>
