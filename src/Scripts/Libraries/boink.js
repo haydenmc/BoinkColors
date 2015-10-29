@@ -510,16 +510,18 @@ var Repeater = (function (_super) {
             this.applyMyDataContext(clone.childNodes[j], itemDataContext);
         }
         var refNode = null;
-        if (arg.position < this.itemNodes.length) {
+        if (this.itemNodes.length === 0) {
+            refNode = this.nextSibling;
+        }
+        else if (arg.position < this.itemNodes.length) {
             refNode = this.itemNodes[arg.position][0];
         }
-        this.itemNodes.splice(arg.position, 0, cloneNodes);
-        if (arg.position === this.dataContext.value.size - 1) {
-            this.appendChild(clone);
-        }
         else {
-            this.insertBefore(clone, refNode);
+            var refNodes = this.itemNodes[this.itemNodes.length - 1];
+            refNode = refNodes[refNodes.length - 1].nextSibling;
         }
+        this.itemNodes.splice(arg.position, 0, cloneNodes);
+        this.parentNode.insertBefore(clone, refNode);
         var itemBindings = new Array();
         for (var j = 0; j < cloneNodes.length; j++) {
             var nodeBindings = this.dataBinder.processBindings(cloneNodes[j], itemDataContext);
@@ -559,6 +561,7 @@ var Repeater = (function (_super) {
     };
     Repeater.prototype.populateAllItems = function () {
         var array = this.dataContext.value;
+        var refNode = this.nextSibling;
         for (var i = 0; i < array.size; i++) {
             var itemDataContext = new Observable(array.get(i));
             var clone = document.importNode(this.template.content, true);
@@ -568,7 +571,8 @@ var Repeater = (function (_super) {
                 this.applyMyDataContext(clone.childNodes[j], itemDataContext);
             }
             this.itemNodes.push(cloneNodes);
-            this.appendChild(clone);
+            this.parentNode.insertBefore(clone, refNode);
+            refNode = cloneNodes[cloneNodes.length - 1].nextSibling;
             var itemBindings = new Array();
             for (var j = 0; j < cloneNodes.length; j++) {
                 var nodeBindings = this.dataBinder.processBindings(cloneNodes[j], itemDataContext);

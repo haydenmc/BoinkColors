@@ -22,11 +22,26 @@ module.exports = function (grunt) {
                     { src: 'src/index.html', dest: 'out/index.html' }
                 ]
             }
-        }
+        },
+        watch: {
+            html: {
+                files: 'src/index.html',
+                tasks: ['copy'],
+            },
+            src: {
+                files: ['src/Scripts/**/*.ts'],
+                tasks: ['ts'],
+            },
+            libs: {
+                files: ['src/Scripts/Libraries/*.js'],
+                tasks: ['copy'],
+            },
+        },
     });
 
     grunt.loadNpmTasks('grunt-ts');
     grunt.loadNpmTasks('grunt-contrib-copy');
+    grunt.loadNpmTasks('grunt-contrib-watch');
     
     grunt.registerTask('default', ['ts', 'copy']);
 };
