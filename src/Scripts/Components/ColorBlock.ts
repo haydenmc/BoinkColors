@@ -6,8 +6,8 @@ class ColorBlock extends Component {
 		
 		// HACK: Bind our data context to our background-color style
 		// (maybe Boink can make this automagic some day...)
-		this.dataContext.value.hexValue.onValueChanged.subscribe((arg) => {
-			this.colorChanged(arg.newValue);
+		this.dataBinder.registerBinding("hexValue").onValueChanged.subscribe((arg) => {
+			this.colorChanged(arg.valueChangedEvent.newValue);
 		});
 		this.colorChanged(this.dataContext.value.hexValue.value);
 	}

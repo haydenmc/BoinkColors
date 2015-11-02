@@ -3,6 +3,7 @@ declare class EventHandler<T> {
     constructor();
     subscribe(callback: (arg: T) => void): void;
     unSubscribe(callback: (arg: T) => void): void;
+    unSubscribeAll(): void;
     fire(arg: T): void;
 }
 declare class Observable<T> {
@@ -16,30 +17,53 @@ interface ValueChangedEvent<T> {
     oldValue: T;
     newValue: T;
 }
+declare class DataBinding {
+    dataContext: Observable<any>;
+    path: string;
+    property: string;
+    childBindings: {
+        [property: string]: DataBinding;
+    };
+    private updateCallback;
+    onValueChanged: EventHandler<DataBindingValueChangedEvent>;
+    value: any;
+    constructor(path: string, dataContext: Observable<any>);
+    reattachChildren(binding?: DataBinding): void;
+    reattachBinding(): void;
+    attachBinding(): void;
+    detachBinding(dataContext?: Observable<any>): void;
+    releaseListeners(): void;
+}
+declare class DataBindingValueChangedEvent {
+    path: string;
+    valueChangedEvent: ValueChangedEvent<any>;
+}
+declare class NodeBinding {
+    node: Node;
+    bindings: DataBinding[];
+    private originalValue;
+    updateCallback: (args) => void;
+    constructor(node: Node, bindings: DataBinding[]);
+    updateNode(): void;
+}
 declare class DataBinder {
     static bindingRegex: RegExp;
-    protected nodeDataBindings: Array<NodeDataBindingInformation>;
-    protected _dataContext: Observable<any>;
+    protected bindingTree: DataBinding;
+    protected nodeBindings: NodeBinding[];
+    private _dataContext;
     dataContext: Observable<any>;
     constructor(dataContext?: Observable<any>);
-    processBindings(node: Node, dataContext?: Observable<any>): Array<NodeDataBindingInformation>;
-    resolveBinding(bindingInfo: NodeDataBindingInformation): void;
-    resolveBindings(bindingInfo: Array<NodeDataBindingInformation>): void;
-    resolveAllBindings(): void;
-    releaseBinding(bindingInfo: NodeDataBindingInformation): void;
-    releaseBindings(bindingInfo: Array<NodeDataBindingInformation>): void;
-}
-declare class NodeDataBindingInformation {
-    dataContext: Observable<any>;
-    bindingPath: string;
-    node: Node;
-    originalText: string;
-    updateCallback: (args: ValueChangedEvent<any>) => void;
+    parseBindings(str: string): string[];
+    bindNodes(node: Node): void;
+    registerBinding(path: string): DataBinding;
+    removeAllBindings(binding?: DataBinding): void;
+    static resolvePropertyPath(path: string, dataContext: Observable<any>): Observable<any>;
 }
 declare class Component extends HTMLElement {
     protected shadowRoot: any;
     protected _dataContext: Observable<any>;
     dataContext: Observable<any>;
+    parentComponent: Component;
     protected dataBinder: DataBinder;
     constructor();
     static register(elementName: string, theClass: any): void;
@@ -49,6 +73,7 @@ declare class Component extends HTMLElement {
     protected applyShadowTemplate(): void;
     protected processEventBindings(node: Node): void;
     protected applyMyDataContext(node: Node, dataContext?: Observable<any>): void;
+    protected setParentComponent(node: Node, component?: Component): void;
     detachedCallback(): void;
     attributeChangedCallback(attrName: string, oldVal: string, newVal: string): void;
 }
@@ -90,12 +115,22 @@ declare class ObservableArray<T> {
 }
 declare class Repeater extends Component {
     private template;
-    private itemNodes;
-    private itemNodeBindings;
+    private repeaterItems;
+    private itemEventCallbacks;
     createdCallback(): void;
+    attachedCallback(): void;
+    protected processEventBindings(node: Node): void;
     dataContextUpdated(): void;
     itemAdded(arg: ObservableArrayEventArgs<any>): void;
     itemRemoved(arg: ObservableArrayEventArgs<any>): void;
-    attachedCallback(): void;
     private populateAllItems();
+    private addItem(dataContext, position?);
+    private removeItem(position);
+    private clearItems();
+    private applyRepeaterEvents(node, dataContext);
+}
+interface RepeaterItem {
+    dataContext: Observable<any>;
+    dataBinder: DataBinder;
+    nodes: Node[];
 }

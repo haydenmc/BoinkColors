@@ -9,6 +9,9 @@ var EventHandler = (function () {
         var index = this.callbacks.indexOf(callback);
         this.callbacks = this.callbacks.splice(index, 1);
     };
+    EventHandler.prototype.unSubscribeAll = function () {
+        this.callbacks = new Array();
+    };
     EventHandler.prototype.fire = function (arg) {
         for (var i = 0; i < this.callbacks.length; i++) {
             this.callbacks[i](arg);
@@ -45,130 +48,207 @@ var Observable = (function () {
     });
     return Observable;
 })();
-/// <reference path="Components/Component.ts" />
-/// <reference path="Data/Observable.ts" />
+/// <reference path="DataBinder.ts" />
+var DataBinding = (function () {
+    function DataBinding(path, dataContext) {
+        var _this = this;
+        this.dataContext = dataContext;
+        this.path = path;
+        this.childBindings = {};
+        if (path.indexOf(".") >= 0) {
+            this.property = path.substr(path.lastIndexOf(".") + 1);
+        }
+        else {
+            this.property = path;
+        }
+        this.onValueChanged = new EventHandler();
+        this.updateCallback = function (args) {
+            _this.onValueChanged.fire({ path: _this.path, valueChangedEvent: args });
+            _this.reattachChildren(_this);
+        };
+        this.attachBinding();
+    }
+    Object.defineProperty(DataBinding.prototype, "value", {
+        get: function () {
+            return DataBinder.resolvePropertyPath(this.path, this.dataContext).value;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    DataBinding.prototype.reattachChildren = function (binding) {
+        if (!binding) {
+            return;
+        }
+        for (var c in binding.childBindings) {
+            if (binding.childBindings.hasOwnProperty(c)) {
+                binding.childBindings[c].reattachBinding();
+                this.reattachChildren(binding.childBindings[c]);
+            }
+        }
+    };
+    DataBinding.prototype.reattachBinding = function () {
+        this.detachBinding();
+        this.attachBinding();
+    };
+    DataBinding.prototype.attachBinding = function () {
+        var prop = DataBinder.resolvePropertyPath(this.path, this.dataContext);
+        if (prop) {
+            prop.onValueChanged.subscribe(this.updateCallback);
+            this.onValueChanged.fire({ path: this.path, valueChangedEvent: { oldValue: null, newValue: prop.value } });
+        }
+    };
+    DataBinding.prototype.detachBinding = function (dataContext) {
+        var prop;
+        if (dataContext) {
+            prop = DataBinder.resolvePropertyPath(this.path, dataContext);
+        }
+        else {
+            prop = DataBinder.resolvePropertyPath(this.path, this.dataContext);
+        }
+        if (prop) {
+            prop.onValueChanged.unSubscribe(this.updateCallback);
+        }
+    };
+    DataBinding.prototype.releaseListeners = function () {
+        this.onValueChanged.unSubscribeAll();
+    };
+    return DataBinding;
+})();
+var DataBindingValueChangedEvent = (function () {
+    function DataBindingValueChangedEvent() {
+    }
+    return DataBindingValueChangedEvent;
+})();
+/// <reference path="DataBinding.ts" />
+var NodeBinding = (function () {
+    function NodeBinding(node, bindings) {
+        var _this = this;
+        this.node = node;
+        this.originalValue = this.node.nodeValue;
+        this.bindings = bindings;
+        this.updateCallback = function (args) {
+            _this.updateNode();
+        };
+        for (var i = 0; i < this.bindings.length; i++) {
+            this.bindings[i].onValueChanged.subscribe(this.updateCallback);
+        }
+    }
+    NodeBinding.prototype.updateNode = function () {
+        var newValue = this.originalValue;
+        for (var i = 0; i < this.bindings.length; i++) {
+            newValue = newValue.replace("{{" + this.bindings[i].path + "}}", this.bindings[i].value);
+        }
+        this.node.nodeValue = newValue;
+    };
+    return NodeBinding;
+})();
+/// <reference path="DataBinding.ts" />
+/// <reference path="NodeBinding.ts" />
+/// <reference path="../../Components/Component.ts" />
+/// <reference path="../Observable.ts" />
 var DataBinder = (function () {
     function DataBinder(dataContext) {
         this._dataContext = dataContext;
-        this.nodeDataBindings = new Array();
+        this.bindingTree = new DataBinding("", this.dataContext);
+        this.nodeBindings = [];
     }
     Object.defineProperty(DataBinder.prototype, "dataContext", {
         get: function () {
             return this._dataContext;
         },
-        set: function (newContext) {
-            this._dataContext = newContext;
-            this.resolveAllBindings();
-        },
         enumerable: true,
         configurable: true
     });
-    DataBinder.prototype.processBindings = function (node, dataContext) {
-        var _this = this;
-        var addedBindings = new Array();
-        if (typeof dataContext === "undefined" || dataContext == null) {
-            dataContext = this.dataContext;
+    DataBinder.prototype.parseBindings = function (str) {
+        var bindingProperties = [];
+        var bindingMatches = str.match(DataBinder.bindingRegex);
+        if (bindingMatches != null && bindingMatches.length > 0) {
+            for (var i = 0; i < bindingMatches.length; i++) {
+                var path = bindingMatches[i].substr(2, bindingMatches[i].length - 4);
+                bindingProperties.push(path);
+            }
         }
+        return bindingProperties;
+    };
+    DataBinder.prototype.bindNodes = function (node) {
         if (node instanceof Component) {
-            return addedBindings;
+            return;
         }
         if (node.nodeType === 1 || node.nodeType === 11) {
             for (var i = 0; i < node.childNodes.length; i++) {
-                var recursiveResult = this.processBindings(node.childNodes[i], dataContext);
-                for (var j = 0; j < recursiveResult.length; j++) {
-                    addedBindings.push(recursiveResult[j]);
-                }
+                this.bindNodes(node.childNodes[i]);
             }
         }
         else if (node.nodeType === 3) {
-            var bindingMatches = node.nodeValue.match(DataBinder.bindingRegex);
-            if (bindingMatches != null && bindingMatches.length > 0) {
-                for (var i = 0; i < bindingMatches.length; i++) {
-                    var absolutePath = bindingMatches[i].substr(2, bindingMatches[i].length - 4);
-                    var path = absolutePath;
-                    var bindingContext = dataContext;
-                    while (path.indexOf(".") >= 0) {
-                        var subPath = path.substr(0, path.indexOf("."));
-                        path = path.substr(path.indexOf(".") + 1);
-                        if (bindingContext.value == null) {
-                            bindingContext = null;
-                            break;
-                        }
-                        bindingContext = bindingContext.value[subPath];
-                    }
-                    if (dataContext != null && bindingContext != null) {
-                        var bindingInfo = {
-                            dataContext: dataContext,
-                            node: node,
-                            bindingPath: absolutePath,
-                            originalText: node.nodeValue,
-                            updateCallback: null
-                        };
-                        bindingInfo.updateCallback = function (args) {
-                            _this.resolveBinding(bindingInfo);
-                        };
-                        bindingContext.value[path].onValueChanged.subscribe(bindingInfo.updateCallback);
-                        this.nodeDataBindings.push(bindingInfo);
-                        addedBindings.push(bindingInfo);
-                    }
-                    else {
-                        throw new Error("Node data-binding failed on non- existing property '" + absolutePath + "'.");
-                    }
-                }
+            var bindingMatches = this.parseBindings(node.nodeValue);
+            var bindings = [];
+            for (var i = 0; i < bindingMatches.length; i++) {
+                bindings.push(this.registerBinding(bindingMatches[i]));
             }
-        }
-        return addedBindings;
-    };
-    DataBinder.prototype.resolveBinding = function (bindingInfo) {
-        var text = bindingInfo.originalText;
-        var matches = text.match(DataBinder.bindingRegex);
-        for (var i = 0; i < matches.length; i++) {
-            var path = matches[i].substr(2, matches[i].length - 4);
-            var bindingValue = "";
-            if (bindingInfo.dataContext != null
-                && bindingInfo.dataContext.value != null
-                && bindingInfo.dataContext.value[path] != null
-                && bindingInfo.dataContext.value[path].value != null) {
-                bindingValue = bindingInfo.dataContext.value[path].value;
-            }
-            text = text.replace(matches[i], bindingValue);
-        }
-        bindingInfo.node.nodeValue = text;
-    };
-    DataBinder.prototype.resolveBindings = function (bindingInfo) {
-        for (var i = 0; i < bindingInfo.length; i++) {
-            this.resolveBinding(bindingInfo[i]);
-        }
-    };
-    DataBinder.prototype.resolveAllBindings = function () {
-        for (var i = 0; i < this.nodeDataBindings.length; i++) {
-            this.resolveBinding(this.nodeDataBindings[i]);
-        }
-    };
-    DataBinder.prototype.releaseBinding = function (bindingInfo) {
-        var observableProperty = bindingInfo.dataContext.value[bindingInfo.bindingPath];
-        observableProperty.onValueChanged.unSubscribe(bindingInfo.updateCallback);
-        for (var i = this.nodeDataBindings.length - 1; i--;) {
-            if (this.nodeDataBindings[i] === bindingInfo) {
-                this.nodeDataBindings.splice(i, 1);
+            if (bindings.length > 0) {
+                this.nodeBindings.push(new NodeBinding(node, bindings));
             }
         }
     };
-    DataBinder.prototype.releaseBindings = function (bindingInfo) {
-        for (var i = 0; i < bindingInfo.length; i++) {
-            this.releaseBinding(bindingInfo[i]);
+    DataBinder.prototype.registerBinding = function (path) {
+        var properties = path.split(".");
+        var parentBinding = this.bindingTree;
+        var traversedPath = "";
+        for (var i = 0; i < properties.length; i++) {
+            if (i > 0) {
+                traversedPath += ".";
+            }
+            traversedPath += properties[i];
+            if (parentBinding.childBindings[properties[i]]) {
+                parentBinding = parentBinding.childBindings[properties[i]];
+            }
+            else {
+                var bindingInfo = new DataBinding(traversedPath, this.dataContext);
+                parentBinding.childBindings[properties[i]] = bindingInfo;
+                parentBinding = bindingInfo;
+            }
         }
+        return parentBinding;
+    };
+    DataBinder.prototype.removeAllBindings = function (binding) {
+        var currentBinding;
+        if (binding) {
+            currentBinding = binding;
+        }
+        else {
+            currentBinding = this.bindingTree;
+        }
+        for (var childBinding in currentBinding.childBindings) {
+            if (currentBinding.childBindings.hasOwnProperty(childBinding)) {
+                this.removeAllBindings(currentBinding.childBindings[childBinding]);
+                delete currentBinding.childBindings[childBinding];
+            }
+        }
+        currentBinding.detachBinding();
+        currentBinding.releaseListeners();
+    };
+    DataBinder.resolvePropertyPath = function (path, dataContext) {
+        var currentDataContext = dataContext;
+        if (path === "") {
+            return currentDataContext;
+        }
+        var properties = path.split(".");
+        for (var i = 0; i < properties.length; i++) {
+            if (currentDataContext.value[properties[i]]) {
+                currentDataContext = currentDataContext.value[properties[i]];
+            }
+            else {
+                console.warn("Attempted to resolve non-existent property path: '" + path + "'.");
+                return null;
+            }
+        }
+        return currentDataContext;
     };
     DataBinder.bindingRegex = /{{[a-zA-Z._0-9]+}}/g;
     return DataBinder;
 })();
-var NodeDataBindingInformation = (function () {
-    function NodeDataBindingInformation() {
-    }
-    return NodeDataBindingInformation;
-})();
 /// <reference path="../Data/Observable.ts" />
-/// <reference path="../DataBinder.ts" />
+/// <reference path="../Data/Binding/DataBinder.ts" />
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -186,7 +266,9 @@ var Component = (function (_super) {
         },
         set: function (newContext) {
             this._dataContext = newContext;
-            this.dataBinder.dataContext = newContext;
+            if (this.dataBinder) {
+                this.dataBinder.dataContext = newContext;
+            }
         },
         enumerable: true,
         configurable: true
@@ -199,7 +281,6 @@ var Component = (function (_super) {
     Component.prototype.createdCallback = function () {
         console.log("Component created: " + this.tagName);
         this._dataContext = new Observable();
-        this.dataBinder = new DataBinder(this.dataContext);
     };
     Component.prototype.attachedCallback = function () {
         console.log("Component attached.");
@@ -214,6 +295,7 @@ var Component = (function (_super) {
             this.dataContext = parentElement.dataContext;
         }
         this.processDataContextAttributeBinding();
+        this.dataBinder = new DataBinder(this.dataContext);
         this.applyShadowTemplate();
     };
     Component.prototype.processDataContextAttributeBinding = function () {
@@ -256,6 +338,7 @@ var Component = (function (_super) {
             this.shadowRoot = this.createShadowRoot();
             for (var i = 0; i < clone.childNodes.length; i++) {
                 this.applyMyDataContext(clone.childNodes[i]);
+                this.setParentComponent(clone.childNodes[i]);
             }
             this.shadowRoot.appendChild(clone);
             if (window.ShadowDOMPolyfill) {
@@ -264,8 +347,7 @@ var Component = (function (_super) {
                     style.innerHTML = window.WebComponents.ShadowCSS.shimStyle(style, this.tagName.toLowerCase());
                 }
             }
-            this.dataBinder.processBindings(this.shadowRoot);
-            this.dataBinder.resolveAllBindings();
+            this.dataBinder.bindNodes(this.shadowRoot);
             this.processEventBindings(this.shadowRoot);
         }
     };
@@ -297,6 +379,20 @@ var Component = (function (_super) {
         else {
             for (var i = 0; i < node.childNodes.length; i++) {
                 this.applyMyDataContext(node.childNodes[i], dataContext);
+            }
+        }
+    };
+    Component.prototype.setParentComponent = function (node, component) {
+        var newParent = this;
+        if (component) {
+            newParent = component;
+        }
+        if (node instanceof Component) {
+            node.parentComponent = newParent;
+        }
+        else {
+            for (var i = 0; i < node.childNodes.length; i++) {
+                this.setParentComponent(node.childNodes[i], component);
             }
         }
     };
@@ -359,10 +455,11 @@ var Page = (function (_super) {
             var clone = document.importNode(template.content, true);
             for (var i = 0; i < clone.childNodes.length; i++) {
                 this.contentNodes.push(clone.childNodes[i]);
+                this.setParentComponent(clone.childNodes[i]);
             }
             this.appendChild(clone);
             for (var i = 0; i < clone.childNodes.length; i++) {
-                this.dataBinder.processBindings(clone.childNodes[i]);
+                this.dataBinder.bindNodes(clone.childNodes[i]);
             }
         }
         else {
@@ -485,62 +582,8 @@ var Repeater = (function (_super) {
     }
     Repeater.prototype.createdCallback = function () {
         _super.prototype.createdCallback.call(this);
-        this.itemNodes = new Array();
-        this.itemNodeBindings = new Array();
-    };
-    Repeater.prototype.dataContextUpdated = function () {
-        var _this = this;
-        for (var i = 0; i < this.itemNodes.length; i++) {
-            for (var j = 0; j < this.itemNodes[i].length; j++) {
-                this.itemNodes[i][j].parentNode.removeChild(this.itemNodes[i][j]);
-            }
-        }
-        this.itemNodes.splice(0, this.itemNodes.length);
-        this.itemNodeBindings.splice(0, this.itemNodeBindings.length);
-        this.populateAllItems();
-        this.dataContext.value.itemAdded.subscribe(function (arg) { return _this.itemAdded(arg); });
-        this.dataContext.value.itemRemoved.subscribe(function (arg) { return _this.itemRemoved(arg); });
-    };
-    Repeater.prototype.itemAdded = function (arg) {
-        var itemDataContext = new Observable(arg.item);
-        var clone = document.importNode(this.template.content, true);
-        var cloneNodes = new Array();
-        for (var j = 0; j < clone.childNodes.length; j++) {
-            cloneNodes.push(clone.childNodes[j]);
-            this.applyMyDataContext(clone.childNodes[j], itemDataContext);
-        }
-        var refNode = null;
-        if (this.itemNodes.length === 0) {
-            refNode = this.nextSibling;
-        }
-        else if (arg.position < this.itemNodes.length) {
-            refNode = this.itemNodes[arg.position][0];
-        }
-        else {
-            var refNodes = this.itemNodes[this.itemNodes.length - 1];
-            refNode = refNodes[refNodes.length - 1].nextSibling;
-        }
-        this.itemNodes.splice(arg.position, 0, cloneNodes);
-        this.parentNode.insertBefore(clone, refNode);
-        var itemBindings = new Array();
-        for (var j = 0; j < cloneNodes.length; j++) {
-            var nodeBindings = this.dataBinder.processBindings(cloneNodes[j], itemDataContext);
-            for (var k = 0; k < nodeBindings.length; k++) {
-                itemBindings.push(nodeBindings[k]);
-            }
-        }
-        this.itemNodeBindings.splice(arg.position, 0, itemBindings);
-        this.dataBinder.resolveBindings(itemBindings);
-    };
-    Repeater.prototype.itemRemoved = function (arg) {
-        var itemBindings = this.itemNodeBindings[arg.position];
-        this.dataBinder.releaseBindings(itemBindings);
-        this.itemNodeBindings.splice(arg.position, 1);
-        var nodesToBeRemoved = this.itemNodes[arg.position];
-        for (var i = 0; i < nodesToBeRemoved.length; i++) {
-            nodesToBeRemoved[i].parentNode.removeChild(nodesToBeRemoved[i]);
-        }
-        this.itemNodes.splice(arg.position, 1);
+        this.repeaterItems = [];
+        this.itemEventCallbacks = {};
     };
     Repeater.prototype.attachedCallback = function () {
         var _this = this;
@@ -554,35 +597,102 @@ var Repeater = (function (_super) {
             throw new Error("Invalid data context for repeater component."
                 + " A repeater element should have an observable array set as the data context.");
         }
+        for (var i = 0; i < this.attributes.length; i++) {
+            var attributeName = this.attributes[i].name;
+            var attributeValue = this.attributes[i].value;
+            if (attributeName.indexOf("data-event-item-") === 0) {
+                var eventName = attributeName.replace("data-event-item-", "");
+                if (this.parentComponent && this.parentComponent[attributeValue]) {
+                    this.itemEventCallbacks[eventName] = this.parentComponent[attributeValue];
+                }
+                else {
+                    console.error(this.tagName + " attempted to bind event to unexisting callback '"
+                        + attributeValue + "' on "
+                        + this.parentComponent.tagName);
+                }
+            }
+        }
         this.dataContext.onValueChanged.subscribe(function () {
             _this.dataContextUpdated();
         });
         this.dataContextUpdated();
     };
+    Repeater.prototype.processEventBindings = function (node) {
+        return;
+    };
+    Repeater.prototype.dataContextUpdated = function () {
+        var _this = this;
+        this.clearItems();
+        this.populateAllItems();
+        this.dataContext.value.itemAdded.subscribe(function (arg) { return _this.itemAdded(arg); });
+        this.dataContext.value.itemRemoved.subscribe(function (arg) { return _this.itemRemoved(arg); });
+    };
+    Repeater.prototype.itemAdded = function (arg) {
+        var itemDataContext = new Observable(arg.item);
+        this.addItem(itemDataContext, arg.position);
+    };
+    Repeater.prototype.itemRemoved = function (arg) {
+        this.removeItem(arg.position);
+    };
     Repeater.prototype.populateAllItems = function () {
         var array = this.dataContext.value;
-        var refNode = this.nextSibling;
         for (var i = 0; i < array.size; i++) {
             var itemDataContext = new Observable(array.get(i));
-            var clone = document.importNode(this.template.content, true);
-            var cloneNodes = new Array();
-            for (var j = 0; j < clone.childNodes.length; j++) {
-                cloneNodes.push(clone.childNodes[j]);
-                this.applyMyDataContext(clone.childNodes[j], itemDataContext);
-            }
-            this.itemNodes.push(cloneNodes);
-            this.parentNode.insertBefore(clone, refNode);
-            refNode = cloneNodes[cloneNodes.length - 1].nextSibling;
-            var itemBindings = new Array();
-            for (var j = 0; j < cloneNodes.length; j++) {
-                var nodeBindings = this.dataBinder.processBindings(cloneNodes[j], itemDataContext);
-                for (var k = 0; k < nodeBindings.length; k++) {
-                    itemBindings.push(nodeBindings[k]);
-                }
-            }
-            this.itemNodeBindings.push(itemBindings);
+            this.addItem(itemDataContext);
         }
-        this.dataBinder.resolveAllBindings();
+    };
+    Repeater.prototype.addItem = function (dataContext, position) {
+        if (typeof position === "undefined") {
+            position = this.repeaterItems.length;
+        }
+        var newItem = {
+            dataContext: dataContext,
+            dataBinder: new DataBinder(dataContext),
+            nodes: []
+        };
+        var clone = document.importNode(this.template.content, true);
+        for (var i = 0; i < clone.childNodes.length; i++) {
+            newItem.nodes.push(clone.childNodes[i]);
+            this.applyMyDataContext(clone.childNodes[i], dataContext);
+            this.setParentComponent(clone.childNodes[i], this.parentComponent);
+            this.applyRepeaterEvents(clone.childNodes[i], dataContext);
+            newItem.dataBinder.bindNodes(clone.childNodes[i]);
+        }
+        var refNode = null;
+        if (this.repeaterItems.length === 0) {
+            refNode = this.nextSibling;
+        }
+        else if (position < this.repeaterItems.length) {
+            refNode = this.repeaterItems[position].nodes[0];
+        }
+        else {
+            var lastItem = this.repeaterItems[this.repeaterItems.length - 1];
+            refNode = lastItem.nodes[lastItem.nodes.length - 1].nextSibling;
+        }
+        this.repeaterItems.splice(position, 0, newItem);
+        this.parentNode.insertBefore(clone, refNode);
+    };
+    Repeater.prototype.removeItem = function (position) {
+        var item = this.repeaterItems[position];
+        this.repeaterItems.splice(position, 1);
+        item.dataBinder.removeAllBindings();
+        var nodesToBeRemoved = item.nodes;
+        for (var i = 0; i < nodesToBeRemoved.length; i++) {
+            nodesToBeRemoved[i].parentNode.removeChild(nodesToBeRemoved[i]);
+        }
+    };
+    Repeater.prototype.clearItems = function () {
+        for (var i = this.repeaterItems.length - 1; i >= 0; i--) {
+            this.removeItem(i);
+        }
+    };
+    Repeater.prototype.applyRepeaterEvents = function (node, dataContext) {
+        var _this = this;
+        for (var eventName in this.itemEventCallbacks) {
+            if (this.itemEventCallbacks[eventName]) {
+                node.addEventListener(eventName, function (args) { return _this.itemEventCallbacks[eventName](dataContext); });
+            }
+        }
     };
     return Repeater;
 })(Component);
