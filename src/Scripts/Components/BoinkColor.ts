@@ -4,7 +4,7 @@
 class BoinkColor extends Application {
 	public createdCallback() {
 		super.createdCallback();
-		this.dataContext.value = new DataModel();
+		this.dataContext = new Observable<DataModel>(new DataModel());
 	}
 }
 Component.register("bc-application", BoinkColor);

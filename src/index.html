@@ -53,7 +53,7 @@
 			</ui-frame>
 			<div>
 				<h1>Color</h1>
-				<bc-colorblock style="width: 96px; height: 96px; margin: 8px;" data-context="{{selectedColor}}"></bc-colorblock>
+				<bc-colorproperties data-context="{{selectedColor}}"></bc-colorproperties>
 			</div>
 		</bc-application>
 		
@@ -93,6 +93,31 @@
 					transition: background-color 100ms ease-out;
 				}
 			</style>
+		</template>
+		
+		<!-- Template for ColorProperties Component -->
+		<template id="bc-colorproperties">
+			<style>
+				bc-colorblock {
+					width: 96px;
+					height: 96px;
+					margin: 8px;
+				}
+			</style>
+			<bc-colorblock></bc-colorblock>
+			<div>Hex: {{hexValue}}</div>
+			<div>Hex: {{hexValue}}</div>
+			<div>Red: {{red}}</div>
+			<div>Green: {{green}}</div>
+			<div>Blue: {{blue}}</div>
+			<div>Hue: {{hue}}</div>
+			<div>Saturation: {{saturation}}</div>
+			<div>Lightness: {{lightness}}</div>
+		</template>
+		
+		<!-- Template for ValueSlider Component -->
+		<template id="bc-valueslider">
+			<input type="range" />
 		</template>
 	</body>
 </html>

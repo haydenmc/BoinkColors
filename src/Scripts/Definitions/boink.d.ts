@@ -6,19 +6,23 @@ declare class EventHandler<T> {
     unSubscribeAll(): void;
     fire(arg: T): void;
 }
-declare class Observable<T> {
+interface IObservable<T> {
+    value: T;
+    onValueChanged: EventHandler<ValueChangedEvent<T>>;
+}
+interface ValueChangedEvent<T> {
+    oldValue: T;
+    newValue: T;
+}
+declare class Observable<T> implements IObservable<T> {
     private _value;
     value: T;
     private _onValueChanged;
     onValueChanged: EventHandler<ValueChangedEvent<T>>;
     constructor(defaultValue?: T);
 }
-interface ValueChangedEvent<T> {
-    oldValue: T;
-    newValue: T;
-}
 declare class DataBinding {
-    dataContext: Observable<any>;
+    dataBinder: DataBinder;
     path: string;
     property: string;
     childBindings: {
@@ -27,11 +31,11 @@ declare class DataBinding {
     private updateCallback;
     onValueChanged: EventHandler<DataBindingValueChangedEvent>;
     value: any;
-    constructor(path: string, dataContext: Observable<any>);
-    reattachChildren(binding?: DataBinding): void;
-    reattachBinding(): void;
+    constructor(path: string, dataBinder: DataBinder);
+    reattachChildren(binding?: DataBinding, detachFrom?: IObservable<any>): void;
+    reattachBinding(detachFrom?: IObservable<any>): void;
     attachBinding(): void;
-    detachBinding(dataContext?: Observable<any>): void;
+    detachBinding(detachFrom?: IObservable<any>): void;
     releaseListeners(): void;
 }
 declare class DataBindingValueChangedEvent {
@@ -51,28 +55,29 @@ declare class DataBinder {
     protected bindingTree: DataBinding;
     protected nodeBindings: NodeBinding[];
     private _dataContext;
-    dataContext: Observable<any>;
-    constructor(dataContext?: Observable<any>);
+    dataContext: IObservable<any>;
+    constructor(dataContext?: IObservable<any>);
     parseBindings(str: string): string[];
     bindNodes(node: Node): void;
     registerBinding(path: string): DataBinding;
     removeAllBindings(binding?: DataBinding): void;
-    static resolvePropertyPath(path: string, dataContext: Observable<any>): Observable<any>;
+    static resolvePropertyPath(path: string, dataContext: IObservable<any>): IObservable<any>;
 }
 declare class Component extends HTMLElement {
     protected shadowRoot: any;
-    protected _dataContext: Observable<any>;
-    dataContext: Observable<any>;
+    protected _dataContext: IObservable<any>;
+    dataContext: IObservable<any>;
     parentComponent: Component;
     protected dataBinder: DataBinder;
     constructor();
     static register(elementName: string, theClass: any): void;
     createdCallback(): void;
     attachedCallback(): void;
+    dataContextUpdated(oldContext: IObservable<any>, newContext: IObservable<any>): void;
     protected processDataContextAttributeBinding(): void;
     protected applyShadowTemplate(): void;
     protected processEventBindings(node: Node): void;
-    protected applyMyDataContext(node: Node, dataContext?: Observable<any>): void;
+    protected applyMyDataContext(node: Node, dataContext?: IObservable<any>): void;
     protected setParentComponent(node: Node, component?: Component): void;
     detachedCallback(): void;
     attributeChangedCallback(attrName: string, oldVal: string, newVal: string): void;
@@ -120,7 +125,7 @@ declare class Repeater extends Component {
     createdCallback(): void;
     attachedCallback(): void;
     protected processEventBindings(node: Node): void;
-    dataContextUpdated(): void;
+    dataContextUpdated(oldContext: IObservable<any>, newContext: IObservable<any>): void;
     itemAdded(arg: ObservableArrayEventArgs<any>): void;
     itemRemoved(arg: ObservableArrayEventArgs<any>): void;
     private populateAllItems();
@@ -130,7 +135,15 @@ declare class Repeater extends Component {
     private applyRepeaterEvents(node, dataContext);
 }
 interface RepeaterItem {
-    dataContext: Observable<any>;
+    dataContext: IObservable<any>;
     dataBinder: DataBinder;
     nodes: Node[];
+}
+declare class ObservableProxy<T, U> implements IObservable<T> {
+    private source;
+    private outgoing;
+    private incoming;
+    value: T;
+    onValueChanged: EventHandler<ValueChangedEvent<T>>;
+    constructor(source: IObservable<U>, outgoing: (source: U) => T, incoming: (source: T, value: U) => U);
 }
