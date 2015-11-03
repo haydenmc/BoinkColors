@@ -105,14 +105,13 @@
 				}
 			</style>
 			<bc-colorblock></bc-colorblock>
-			<div>Hex: {{hexValue}}</div>
-			<div>Hex: {{hexValue}}</div>
-			<div>Red: {{red}}</div>
-			<div>Green: {{green}}</div>
-			<div>Blue: {{blue}}</div>
-			<div>Hue: {{hue}}</div>
-			<div>Saturation: {{saturation}}</div>
-			<div>Lightness: {{lightness}}</div>
+			<div>Hex: <input class="hexValue"></div>
+			<div>Red: <input type="range" class="red" min="0" max="255"></div>
+			<div>Green: <input type="range" class="green" min="0" max="255"></div>
+			<div>Blue: <input type="range" class="blue" min="0" max="255"></div>
+			<div>Hue: {{hue}}&deg;</div>
+			<div>Saturation: {{saturation}}%</div>
+			<div>Lightness: {{lightness}}%</div>
 		</template>
 		
 		<!-- Template for ValueSlider Component -->

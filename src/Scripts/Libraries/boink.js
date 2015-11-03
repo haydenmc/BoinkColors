@@ -8,7 +8,7 @@ var EventHandler = (function () {
     EventHandler.prototype.unSubscribe = function (callback) {
         var index = this.callbacks.indexOf(callback);
         if (index >= 0) {
-            this.callbacks = this.callbacks.splice(index, 1);
+            this.callbacks.splice(index, 1);
         }
     };
     EventHandler.prototype.unSubscribeAll = function () {

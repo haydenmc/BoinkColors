@@ -124,7 +124,7 @@ class ColorModel {
 	 * @param {number} r Red value out of 255
 	 * @param {number} g Green value out of 255
 	 * @param {number} b Blue value out of 255
-	 * @returns {number[]} Array of hue, saturation, and lightness values
+	 * @returns {number[]} Array of hue (0 - 360), saturation (0 - 100), and lightness (0 - 100) values
 	 */
 	public static rgbToHsl(r: number, g: number, b: number): number[] {
 		r /= 255;
@@ -147,6 +147,6 @@ class ColorModel {
 			h /= 6;
 		}
 
-		return [h, s, l];
+		return [ Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
 	}
 }
