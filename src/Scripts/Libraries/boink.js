@@ -67,7 +67,7 @@ var DataBinding = (function () {
         }
         this.onValueChanged = new EventHandler();
         this.updateCallback = function (args) {
-            _this.onValueChanged.fire({ path: _this.path, valueChangedEvent: args });
+            _this.onValueChanged.fire({ path: _this.path, binding: _this, valueChangedEvent: args });
             _this.reattachChildren();
         };
         this.attachBinding();
@@ -75,6 +75,13 @@ var DataBinding = (function () {
     Object.defineProperty(DataBinding.prototype, "value", {
         get: function () {
             return DataBinder.resolvePropertyPath(this.path, this.dataBinder.dataContext).value;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(DataBinding.prototype, "observableValue", {
+        get: function () {
+            return DataBinder.resolvePropertyPath(this.path, this.dataBinder.dataContext);
         },
         enumerable: true,
         configurable: true
@@ -98,7 +105,7 @@ var DataBinding = (function () {
         var prop = DataBinder.resolvePropertyPath(this.path, this.dataBinder.dataContext);
         if (prop) {
             prop.onValueChanged.subscribe(this.updateCallback);
-            this.onValueChanged.fire({ path: this.path, valueChangedEvent: { oldValue: null, newValue: prop.value } });
+            this.onValueChanged.fire({ path: this.path, binding: this, valueChangedEvent: { oldValue: null, newValue: prop.value } });
         }
     };
     DataBinding.prototype.detachBinding = function (detachFrom) {
@@ -165,13 +172,14 @@ var DataBinder = (function () {
             if (this._dataContext !== newContext) {
                 var oldContext = this._dataContext;
                 this._dataContext = newContext;
+                this.bindingTree.reattachBinding(oldContext);
                 this.bindingTree.reattachChildren(null, oldContext);
             }
         },
         enumerable: true,
         configurable: true
     });
-    DataBinder.prototype.parseBindings = function (str) {
+    DataBinder.parseBindings = function (str) {
         var bindingProperties = [];
         var bindingMatches = str.match(DataBinder.bindingRegex);
         if (bindingMatches != null && bindingMatches.length > 0) {
@@ -192,7 +200,7 @@ var DataBinder = (function () {
             }
         }
         else if (node.nodeType === 3) {
-            var bindingMatches = this.parseBindings(node.nodeValue);
+            var bindingMatches = DataBinder.parseBindings(node.nodeValue);
             var bindings = [];
             for (var i = 0; i < bindingMatches.length; i++) {
                 bindings.push(this.registerBinding(bindingMatches[i]));
@@ -203,6 +211,9 @@ var DataBinder = (function () {
         }
     };
     DataBinder.prototype.registerBinding = function (path) {
+        if (path === "") {
+            return this.bindingTree;
+        }
         var properties = path.split(".");
         var parentBinding = this.bindingTree;
         var traversedPath = "";
@@ -294,19 +305,26 @@ var Component = (function (_super) {
         });
     };
     Component.prototype.createdCallback = function () {
+        var _this = this;
         console.log("Component created: " + this.tagName);
+        this.dataContextUpdatedCallback = function (arg) {
+            _this.dataContext = arg.binding.observableValue;
+        };
     };
     Component.prototype.attachedCallback = function () {
         console.log("Component attached.");
-        if (typeof this.dataContext === "undefined") {
-            var parentElement = this;
-            while (typeof parentElement.dataContext === "undefined") {
+        if (typeof this.parentComponent === "undefined") {
+            var parentElement = this.parentElement;
+            while (!(parentElement instanceof Component)) {
                 parentElement = parentElement.parentElement;
                 if (parentElement == null) {
-                    throw new Error("No data context could be found in parents for element '" + this.tagName + "'");
+                    break;
                 }
             }
-            this.dataContext = parentElement.dataContext;
+            this.parentComponent = parentElement;
+        }
+        if (typeof this.dataContext === "undefined" && this.parentComponent) {
+            this.dataContext = this.parentComponent.dataContext;
         }
         this.processDataContextAttributeBinding();
         this.dataBinder = new DataBinder(this.dataContext);
@@ -323,25 +341,9 @@ var Component = (function (_super) {
             var dataContextAttrBindingMatches = dataContextAttr.value.match(DataBinder.bindingRegex);
             if (dataContextAttrBindingMatches != null && dataContextAttrBindingMatches.length > 0) {
                 var dataContextAttrBindingName = dataContextAttrBindingMatches[0].substr(2, dataContextAttrBindingMatches[0].length - 4);
-                var bindingContext = this.dataContext;
-                while (dataContextAttrBindingName.indexOf(".") >= 0) {
-                    var pathSection = dataContextAttrBindingName.substr(0, dataContextAttrBindingName.indexOf("."));
-                    dataContextAttrBindingName = dataContextAttrBindingName.substr(dataContextAttrBindingName.indexOf(".") + 1);
-                    if (typeof bindingContext.value[pathSection] !== "undefined") {
-                        bindingContext = bindingContext.value[pathSection];
-                    }
-                    else {
-                        throw new Error("Couldn't bind data context to non-existing property '"
-                            + pathSection + "' in " + this.tagName + ".");
-                    }
-                }
-                if (typeof bindingContext.value[dataContextAttrBindingName] !== "undefined") {
-                    this.dataContext = bindingContext.value[dataContextAttrBindingName];
-                }
-                else {
-                    throw new Error("Couldn't bind data context to non-existing property '"
-                        + dataContextAttrBindingName + "' in " + this.tagName + ".");
-                }
+                var binding = this.parentComponent.dataBinder.registerBinding(dataContextAttrBindingName);
+                binding.onValueChanged.subscribe(this.dataContextUpdatedCallback);
+                this.dataContext = binding.observableValue;
             }
             else {
                 throw new Error("Couldn't parse data context binding expression '"
