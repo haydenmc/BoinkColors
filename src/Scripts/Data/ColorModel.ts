@@ -90,7 +90,13 @@ class ColorModel {
 			var rgb = ColorModel.hexToRgb(source);
 			return ColorModel.rgbToHsl(rgb[0], rgb[1], rgb[2])[1];
 		}, (source: number, value: string) => {
-			return "000000";
+			var rgb = ColorModel.hexToRgb(value);
+			var hsl = ColorModel.rgbToHsl(rgb[0], rgb[1], rgb[2]);
+			hsl[1] = source;
+			rgb = ColorModel.hslToRgb(hsl[0]/360, hsl[1]/100, hsl[2]/100);
+			return ColorModel.componentToHex(rgb[0])
+				+ ColorModel.componentToHex(rgb[1])
+				+ ColorModel.componentToHex(rgb[2]);
 		});
 
 		// Set up the lightness proxy
@@ -99,7 +105,13 @@ class ColorModel {
 			var rgb = ColorModel.hexToRgb(source);
 			return ColorModel.rgbToHsl(rgb[0], rgb[1], rgb[2])[2];
 		}, (source: number, value: string) => {
-			return "000000";
+			var rgb = ColorModel.hexToRgb(value);
+			var hsl = ColorModel.rgbToHsl(rgb[0], rgb[1], rgb[2]);
+			hsl[2] = source;
+			rgb = ColorModel.hslToRgb(hsl[0]/360, hsl[1]/100, hsl[2]/100);
+			return ColorModel.componentToHex(rgb[0])
+				+ ColorModel.componentToHex(rgb[1])
+				+ ColorModel.componentToHex(rgb[2]);
 		});
 	}
 
@@ -108,6 +120,7 @@ class ColorModel {
 	 * @param {number} c Color component value, 0 - 255
 	 */
 	public static componentToHex(c: number): string {
+		c = Math.round(c);
 		var hex = c.toString(16);
 		return hex.length == 1 ? "0" + hex : hex;
 	}

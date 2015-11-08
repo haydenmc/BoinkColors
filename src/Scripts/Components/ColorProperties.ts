@@ -19,25 +19,6 @@ class ColorProperties extends Component {
 			hexInputBusy = false;
 		});
 		hexInput.value = this.dataContext.value.hexValue.value;
-		
-		// Bind sliders
-		var sliders = ["red", "green", "blue"];
-		for (var i = 0; i < sliders.length; i++) {
-			var slider = sliders[i];
-			((slider) => {
-				var sliderElement = <HTMLInputElement>this.shadowRoot.querySelector("input." + slider);
-				this.dataBinder.registerBinding(slider).onValueChanged.subscribe((arg) => {
-					sliderElement.value = arg.valueChangedEvent.newValue;
-				});
-				sliderElement.addEventListener("change", (ev) => {
-					(<ColorModel>this.dataContext.value)[slider].value = parseInt(sliderElement.value);
-				});
-				sliderElement.addEventListener("input", (ev) => {
-					(<ColorModel>this.dataContext.value)[slider].value = parseInt(sliderElement.value);
-				});
-				sliderElement.value = this.dataContext.value[slider].value;
-			})(slider);
-		}
 	}
 }
 Component.register("bc-colorproperties", ColorProperties);

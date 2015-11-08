@@ -2,46 +2,50 @@
 
 class ValueSlider extends Component {
 	private beingManipulated: boolean;
+	private maxValue: number;
 	
 	public createdCallback(): void {
 		super.createdCallback();
 		this.beingManipulated = false;
+		this.maxValue = 100; // Default to 100
 	}
 	
 	public attachedCallback(): void {
 		super.attachedCallback();
+		// Get max value from attribute
+		if (this.attributes.getNamedItem("data-max")) {
+			this.maxValue = parseInt(this.attributes.getNamedItem("data-max").value);
+		}
+		// Add event listeners
 		this.shadowRoot.querySelector("div.back").addEventListener("mousedown", (e) => {
 			e.preventDefault();
-			var size = ((e.screenX - this.getBoundingClientRect().left) / this.clientWidth) * 100;
-			this.dataContext.value = (size / 100) * 360;
-			this.changeSliderValue(size);
+			var newValue = ((e.clientX - this.getBoundingClientRect().left) / this.clientWidth) * this.maxValue;
+			this.dataContext.value = newValue;
+			this.changeSliderValue(newValue);
 			this.beingManipulated = true;
 		});
-		
 		this.shadowRoot.querySelector("div.back").addEventListener("mousemove", (e) => {
 			e.preventDefault();
 			if (this.beingManipulated) {
 				(<HTMLElement>this.shadowRoot.querySelector("div.front")).style.transition = "none";
-				var size = ((e.screenX - this.getBoundingClientRect().left) / this.clientWidth) * 100;
-				this.dataContext.value = (size / 100) * 360;
-				this.changeSliderValue(size);
+				var newValue = ((e.clientX - this.getBoundingClientRect().left) / this.clientWidth) * this.maxValue;
+				this.dataContext.value = newValue;
+				this.changeSliderValue(newValue);
 			}
 		});
-		
 		document.addEventListener("mouseup", (e) => {
 			this.beingManipulated = false;
 			(<HTMLElement>this.shadowRoot.querySelector("div.front")).style.removeProperty("transition");
 		});
-		
+		// Register data binding
 		this.dataBinder.registerBinding("").onValueChanged.subscribe((arg) => {
-			this.changeSliderValue( (arg.valueChangedEvent.newValue / 360) * 100 );
+			this.changeSliderValue( arg.valueChangedEvent.newValue );
 		});
-		this.changeSliderValue( (this.dataContext.value / 360) * 100 );
+		this.changeSliderValue(this.dataContext.value);
 	}
 	
-	private changeSliderValue(size: number) {
-		(<HTMLElement>this.shadowRoot.querySelector("div.front")).style.width = size + "%";
-		
+	private changeSliderValue(value: number) {
+		(<HTMLElement>this.shadowRoot.querySelector("div.front")).style.width = ((value / this.maxValue) * 100) + "%";
 	}
 }
 Component.register("bc-valueslider", ValueSlider);

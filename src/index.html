@@ -90,7 +90,7 @@
 					min-height: 48px;
 					border: 2px solid #fff;
 					background-color: #000000;
-					transition: background-color 100ms ease-out;
+					/* transition: background-color 100ms ease-out; */
 				}
 			</style>
 		</template>
@@ -106,12 +106,12 @@
 			</style>
 			<bc-colorblock></bc-colorblock>
 			<div>Hex: <input class="hexValue"></div>
-			<div>Red: <input type="range" class="red" min="0" max="255"></div>
-			<div>Green: <input type="range" class="green" min="0" max="255"></div>
-			<div>Blue: <input type="range" class="blue" min="0" max="255"></div>
-			<div>Hue: <bc-valueslider style="width: 150px;" data-context="{{hue}}"></bc-valueslider></div>
-			<div>Saturation: {{saturation}}%</div>
-			<div>Lightness: {{lightness}}%</div>
+			<div>Red: <bc-valueslider style="width: 150px;" data-context="{{red}}" data-max="255"></div>
+			<div>Green: <bc-valueslider style="width: 150px;" data-context="{{green}}" data-max="255"></div>
+			<div>Blue: <bc-valueslider style="width: 150px;" data-context="{{blue}}" data-max="255"></div>
+			<div>Hue: <bc-valueslider style="width: 150px;" data-context="{{hue}}" data-max="360"></bc-valueslider></div>
+			<div>Saturation: <bc-valueslider style="width: 150px;" data-context="{{saturation}}" data-max="100"></div>
+			<div>Lightness: <bc-valueslider style="width: 150px;" data-context="{{lightness}}" data-max="100"></div>
 		</template>
 		
 		<!-- Template for ValueSlider Component -->
