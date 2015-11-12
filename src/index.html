@@ -34,6 +34,11 @@
 			ui-frame {
 				display: block;
 			}
+			
+			div.properties {
+				width: 200px;
+				margin-left: 32px;
+			}
 		</style>
 	</head>
 	<body>
@@ -51,7 +56,7 @@
 					</template>
 				</ui-page>
 			</ui-frame>
-			<div>
+			<div class="properties">
 				<h1>Color</h1>
 				<bc-colorproperties data-context="{{selectedColor}}"></bc-colorproperties>
 			</div>
@@ -98,20 +103,71 @@
 		<!-- Template for ColorProperties Component -->
 		<template id="bc-colorproperties">
 			<style>
+				div.preview {
+					display: flex;
+					flex-direction: row;
+					align-items: center;
+					align-content: center;
+					justify-content: flex-start;
+				}
 				bc-colorblock {
 					width: 96px;
 					height: 96px;
 					margin: 8px;
 				}
+				button.add {
+					background: none;
+					border: none;
+					color: #fff;
+					font-weight: bold;
+					font-size: 32px;
+					line-height: 1;
+				}
+				bc-valueslider {
+					width: 100%;
+				}
+				div.control {
+					margin: 8px;
+				}
+				div.label {
+					font-weight: 600;
+					text-transform: lowercase;
+					font-size: 14px;
+					line-height: 1;
+				}
 			</style>
-			<bc-colorblock></bc-colorblock>
-			<div>Hex: <input class="hexValue"></div>
-			<div>Red: <bc-valueslider style="width: 150px;" data-context="{{red}}" data-max="255"></div>
-			<div>Green: <bc-valueslider style="width: 150px;" data-context="{{green}}" data-max="255"></div>
-			<div>Blue: <bc-valueslider style="width: 150px;" data-context="{{blue}}" data-max="255"></div>
-			<div>Hue: <bc-valueslider style="width: 150px;" data-context="{{hue}}" data-max="360"></bc-valueslider></div>
-			<div>Saturation: <bc-valueslider style="width: 150px;" data-context="{{saturation}}" data-max="100"></div>
-			<div>Lightness: <bc-valueslider style="width: 150px;" data-context="{{lightness}}" data-max="100"></div>
+			<div class="preview">
+				<bc-colorblock></bc-colorblock>
+				<button class="add" data-event-click="addClick">+</button>
+			</div>
+			<div class="control">
+				<div class="label">Hex</div>
+				<input class="hexValue">
+			</div>
+			<div class="control">
+				<div class="label">Red</div>
+				<bc-valueslider data-context="{{red}}" data-max="255"></bc-valueslider>
+			</div>
+			<div class="control">
+				<div class="label">Green</div>
+				<bc-valueslider data-context="{{green}}" data-max="255"></bc-valueslider>
+			</div>
+			<div class="control">
+				<div class="label">Blue</div>
+				<bc-valueslider data-context="{{blue}}" data-max="255"></bc-valueslider>
+			</div>
+			<div class="control">
+				<div class="label">Hue</div>
+				<bc-valueslider data-context="{{hue}}" data-max="360"></bc-valueslider>
+			</div>
+			<div class="control">
+				<div class="label">Saturation</div>
+				<bc-valueslider data-context="{{saturation}}" data-max="100"></bc-valueslider>
+			</div>
+			<div class="control">
+				<div class="label">Lightness</div>
+				<bc-valueslider data-context="{{lightness}}" data-max="100"></bc-valueslider>
+			</div>
 		</template>
 		
 		<!-- Template for ValueSlider Component -->

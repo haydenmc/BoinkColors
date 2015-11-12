@@ -24,11 +24,16 @@ class ValueSlider extends Component {
 			this.changeSliderValue(newValue);
 			this.beingManipulated = true;
 		});
-		this.shadowRoot.querySelector("div.back").addEventListener("mousemove", (e) => {
+		document.addEventListener("mousemove", (e) => {
 			e.preventDefault();
 			if (this.beingManipulated) {
 				(<HTMLElement>this.shadowRoot.querySelector("div.front")).style.transition = "none";
 				var newValue = ((e.clientX - this.getBoundingClientRect().left) / this.clientWidth) * this.maxValue;
+				if (newValue < 0) {
+					newValue = 0;
+				} else if (newValue > this.maxValue) {
+					newValue = this.maxValue;
+				}
 				this.dataContext.value = newValue;
 				this.changeSliderValue(newValue);
 			}

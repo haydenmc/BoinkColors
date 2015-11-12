@@ -607,6 +607,7 @@ var Repeater = (function (_super) {
         this.itemEventCallbacks = {};
     };
     Repeater.prototype.attachedCallback = function () {
+        var _this = this;
         _super.prototype.attachedCallback.call(this);
         this.template = this.querySelector("template");
         if (this.template == null) {
@@ -638,6 +639,8 @@ var Repeater = (function (_super) {
         else {
             console.warn(this.tagName + " attached without a valid data context, expecting an ObservableArray.");
         }
+        this.dataContext.value.itemAdded.subscribe(function (arg) { return _this.itemAdded(arg); });
+        this.dataContext.value.itemRemoved.subscribe(function (arg) { return _this.itemRemoved(arg); });
     };
     Repeater.prototype.processEventBindings = function (node) {
         return;
@@ -720,6 +723,27 @@ var Repeater = (function (_super) {
     return Repeater;
 })(Component);
 Component.register("ui-repeater", Repeater);
+var AutoMapper = (function () {
+    function AutoMapper() {
+    }
+    AutoMapper.map = function (from, to) {
+        var newObj = new to();
+        for (var i in newObj) {
+            if (newObj.hasOwnProperty(i) && typeof newObj[i].value !== "undefined") {
+                if (typeof from[i] !== "undefined") {
+                    if (typeof from[i].value !== "undefined") {
+                        newObj[i].value = from[i].value;
+                    }
+                    else {
+                        newObj[i].value = from[i];
+                    }
+                }
+            }
+        }
+        return newObj;
+    };
+    return AutoMapper;
+})();
 /// <reference path="IObservable.ts" />
 var ObservableProxy = (function () {
     function ObservableProxy(source, outgoing, incoming) {

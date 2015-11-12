@@ -20,5 +20,12 @@ class ColorProperties extends Component {
 		});
 		hexInput.value = this.dataContext.value.hexValue.value;
 	}
+	
+	public addClick() {
+		console.log("Click!");
+		var newColor = new ColorModel(this.dataContext.value.hexValue.value);
+		this.dataContext.value = newColor;
+		this.parentComponent.dataContext.value.palette.value.push(newColor);
+	}
 }
 Component.register("bc-colorproperties", ColorProperties);

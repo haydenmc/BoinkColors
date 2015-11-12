@@ -31,6 +31,7 @@ declare class DataBinding {
     private updateCallback;
     onValueChanged: EventHandler<DataBindingValueChangedEvent>;
     value: any;
+    observableValue: IObservable<any>;
     constructor(path: string, dataBinder: DataBinder);
     reattachChildren(binding?: DataBinding, detachFrom?: IObservable<any>): void;
     reattachBinding(detachFrom?: IObservable<any>): void;
@@ -40,6 +41,7 @@ declare class DataBinding {
 }
 declare class DataBindingValueChangedEvent {
     path: string;
+    binding: DataBinding;
     valueChangedEvent: ValueChangedEvent<any>;
 }
 declare class NodeBinding {
@@ -57,7 +59,7 @@ declare class DataBinder {
     private _dataContext;
     dataContext: IObservable<any>;
     constructor(dataContext?: IObservable<any>);
-    parseBindings(str: string): string[];
+    static parseBindings(str: string): string[];
     bindNodes(node: Node): void;
     registerBinding(path: string): DataBinding;
     removeAllBindings(binding?: DataBinding): void;
@@ -69,6 +71,7 @@ declare class Component extends HTMLElement {
     dataContext: IObservable<any>;
     parentComponent: Component;
     protected dataBinder: DataBinder;
+    private dataContextUpdatedCallback;
     constructor();
     static register(elementName: string, theClass: any): void;
     createdCallback(): void;
@@ -138,6 +141,11 @@ interface RepeaterItem {
     dataContext: IObservable<any>;
     dataBinder: DataBinder;
     nodes: Node[];
+}
+declare class AutoMapper {
+    static map(from: any, to: {
+        new (): any;
+    }): any;
 }
 declare class ObservableProxy<T, U> implements IObservable<T> {
     private source;
